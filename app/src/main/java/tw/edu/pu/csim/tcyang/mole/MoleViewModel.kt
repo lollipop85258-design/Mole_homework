@@ -1,4 +1,4 @@
-
+package tw.edu.pu.csim.tcyang.mole
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -7,63 +7,61 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
-class MoleViewModel: ViewModel() {
-
+class MoleViewModel : ViewModel() {
     var counter by mutableLongStateOf(0)
-        private set  //表示只有 ViewModel 內部可以修改它
-
-    var stay by mutableLongStateOf(0)
-        private set // 設定為 private
-
-    var maxX by mutableStateOf(0)
-        private set
-
-    var maxY by mutableStateOf(0)
-        private set
+    var timeRemaining by mutableLongStateOf(60L)
 
     var offsetX by mutableStateOf(0)
-        private set
-
     var offsetY by mutableStateOf(0)
-        private set
+    private var maxOffsetX by mutableStateOf(0)
+    private var maxOffsetY by mutableStateOf(0)
 
-
-
-    fun incrementCounter() {
-        counter++
-    }
+    private var gameJob: Job? = null
 
     init {
-        // 在 ViewModel 初始化時啟動一個協程來自動增加計數器
-        startCounting()
+        startGameTimer()
     }
 
-    private fun startCounting() {
-        viewModelScope.launch {
-            while (true) { // 無限循環，每秒增加一次
-                delay(1000L)
-                stay++ // 計數器加 1，這會自動觸發 UI 更新
+    private fun startGameTimer() {
+        if (gameJob?.isActive == true) return
+
+        gameJob = viewModelScope.launch {
+            while (isActive && timeRemaining > 0L) {
+                delay(1000)
+                timeRemaining--
                 moveMole()
             }
         }
     }
 
-    // 根據螢幕寬度,高度及地鼠圖片大小,計算螢幕範圍
-    fun getArea(gameSize: IntSize, moleSize:Int) {
-        maxX = gameSize.width - moleSize
-        maxY = gameSize.height - moleSize
+    private fun moveMole() {
+        if (timeRemaining > 0L) {
+            offsetX = Random.nextInt(maxOffsetX + 1)
+            offsetY = Random.nextInt(maxOffsetY + 1)
+        }
     }
 
-
-    // 根據螢幕寬度,高度及地鼠圖片大小,隨機移動地鼠不超出螢幕範圍
-    fun moveMole() {
-        offsetX = (0..maxX).random()
-        offsetY = (0..maxY).random()
+    fun getArea(intSize: IntSize, moleSizePx: Int) {
+        maxOffsetX = intSize.width - moleSizePx
+        maxOffsetY = intSize.height - moleSizePx
+        if (maxOffsetX < 0) maxOffsetX = 0
+        if (maxOffsetY < 0) maxOffsetY = 0
     }
 
+    fun incrementCounter() {
+        if (timeRemaining > 0L) {
+            counter++
+        }
+    }
 
-
+    override fun onCleared() {
+        super.onCleared()
+        gameJob?.cancel()
+    }
 }
